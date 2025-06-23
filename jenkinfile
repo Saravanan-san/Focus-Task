@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds-id')  // Add this in Jenkins
+        IMAGE_NAME = 'saravanansan/react-app:latest'               // Replace with your DockerHub repo
+        EC2_USER = 'ec2-user'                                      // Replace if your EC2 uses ubuntu user
+        EC2_IP = '<YOUR_EC2_PUBLIC_IP>'                            // Replace with your EC2 public IP
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git 'https://github.com/Saravanan-san/React-application-project-1.git'
+            }
+        }
+
+        stage('Install Dependencies & Test') {
+            steps {
+                sh 'npm install'
+                sh 'npm test -- --watchAll=false'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $IMAGE_NAME .'
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                    sh 'docker push $IMAGE_NAME'
+                }
+            }
+        }
+
+        stage('Deploy to AWS EC2') {
+            steps {
+                sshagent(['ec2-key']) { // Add SSH key to Jenkins (private key of your EC2 instance)
+                    sh """
+                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_IP '
+                            docker pull $IMAGE_NAME &&
+                            docker stop react-app || true &&
+                            docker rm react-app || true &&
+                            docker run -d -p 80:80 --name react-app $IMAGE_NAME
+                        '
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "🚀 Deployment completed successfully!"
+        }
+        failure {
+            echo "❌ Deployment failed. Please check the logs."
+        }
+    }
+}
