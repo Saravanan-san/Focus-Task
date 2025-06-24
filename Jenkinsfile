@@ -10,11 +10,12 @@ pipeline {
 
     stages {
         stage('Clone Repo') {
-            steps {
-                echo 'Cloning repository...'
-                git 'https://github.com/Saravanan-san/Focus-Task.git'
-            }
-        }
+    steps {
+        echo 'Cloning repository...'
+        git branch: 'main', url: 'https://github.com/Saravanan-san/Focus-Task.git'
+    }
+}
+
 
         stage('Build Docker Image') {
             steps {
