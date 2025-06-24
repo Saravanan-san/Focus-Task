@@ -10,12 +10,11 @@ pipeline {
 
     stages {
         stage('Clone Repo') {
-    steps {
-        echo 'Cloning repository...'
-        git branch: 'main', url: 'https://github.com/Saravanan-san/Focus-Task.git'
-    }
-}
-
+            steps {
+                echo 'Cloning repository...'
+                git branch: 'main', url: 'https://github.com/Saravanan-san/Focus-Task.git'
+            }
+        }
 
         stage('Build Docker Image') {
             steps {
@@ -38,23 +37,21 @@ pipeline {
         }
 
         stage('Deploy to AWS EC2') {
-    steps {
-        echo 'Deploying to EC2...'
-        script {
-            sshagent (credentials: [EC2_SSH_CREDENTIALS_ID]) {
-                sh """
-                    ssh -o StrictHostKeyChecking=no ${EC2_HOST} '
-                      docker pull ${DOCKER_IMAGE}:latest &&
-                      docker stop focus-task || true &&
-                      docker rm focus-task || true &&
-                      docker run -d -p 80:80 --name focus-task ${DOCKER_IMAGE}:latest
-                    '
-                """
+            steps {
+                echo 'Deploying to EC2...'
+                sshagent (credentials: [EC2_SSH_CREDENTIALS_ID]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${EC2_HOST} '
+                          docker pull ${DOCKER_IMAGE}:latest &&
+                          docker stop focus-task || true &&
+                          docker rm focus-task || true &&
+                          docker run -d -p 80:80 --name focus-task ${DOCKER_IMAGE}:latest
+                        '
+                    """
+                }
             }
         }
     }
-}
-
 
     post {
         success {
@@ -65,3 +62,4 @@ pipeline {
         }
     }
 }
+
