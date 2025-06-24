@@ -2,50 +2,50 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds-id')  // Add this in Jenkins
-        IMAGE_NAME = 'saravanansan/react-app:latest'               // Replace with your DockerHub repo
-        EC2_USER = 'ec2-user'                                      // Replace if your EC2 uses ubuntu user
-        EC2_IP = '<YOUR_EC2_PUBLIC_IP>'                            // Replace with your EC2 public IP
+        DOCKER_IMAGE = 'saravanan-san/focus-task'
+        DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials-id'
+        EC2_SSH_CREDENTIALS_ID = 'ec2-ssh-key-id'
+        EC2_HOST = 'ec2-user@<YOUR_EC2_PUBLIC_IP>'
     }
 
     stages {
-        stage('Clone Repository') {
+        stage('Clone Repo') {
             steps {
-                git 'https://github.com/Saravanan-san/React-application-project-1.git'
-            }
-        }
-
-        stage('Install Dependencies & Test') {
-            steps {
-                sh 'npm install'
-                sh 'npm test -- --watchAll=false'
+                echo 'Cloning repository...'
+                git 'https://github.com/Saravanan-san/Focus-Task.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE_NAME .'
+                echo 'Building Docker image...'
+                script {
+                    docker.build("${DOCKER_IMAGE}:latest")
+                }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Push Docker Image to DockerHub') {
             steps {
+                echo 'Pushing image to DockerHub...'
                 script {
-                    sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                    sh 'docker push $IMAGE_NAME'
+                    docker.withRegistry('https://index.docker.io/v1/', "${DOCKERHUB_CREDENTIALS_ID}") {
+                        docker.image("${DOCKER_IMAGE}:latest").push()
+                    }
                 }
             }
         }
 
         stage('Deploy to AWS EC2') {
             steps {
-                sshagent(['ec2-key']) { // Add SSH key to Jenkins (private key of your EC2 instance)
+                echo 'Deploying to EC2...'
+                sshagent (credentials: [EC2_SSH_CREDENTIALS_ID]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_IP '
-                            docker pull $IMAGE_NAME &&
-                            docker stop react-app || true &&
-                            docker rm react-app || true &&
-                            docker run -d -p 80:80 --name react-app $IMAGE_NAME
+                        ssh -o StrictHostKeyChecking=no ${EC2_HOST} '
+                          docker pull ${DOCKER_IMAGE}:latest &&
+                          docker stop focus-task || true &&
+                          docker rm focus-task || true &&
+                          docker run -d -p 80:80 --name focus-task ${DOCKER_IMAGE}:latest
                         '
                     """
                 }
@@ -55,10 +55,10 @@ pipeline {
 
     post {
         success {
-            echo "🚀 Deployment completed successfully!"
+            echo '✅ Deployment successful!'
         }
         failure {
-            echo "❌ Deployment failed. Please check the logs."
+            echo '❌ Deployment failed!'
         }
     }
 }
