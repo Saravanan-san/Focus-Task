@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'saravanan-san/focus-task'
+        DOCKER_IMAGE = 'saravanan141297/focus-task'
         DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials-id'
         EC2_SSH_CREDENTIALS_ID = 'ec2-ssh-key-id'
         EC2_HOST = 'ec2-user@52.90.29.238'
