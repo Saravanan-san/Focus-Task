@@ -2,7 +2,10 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'saravanan141297/focus-task:latest'
+        DOCKER_IMAGE = 'saravanan141297/focus-task'
+        DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'    
+        EC2_SSH_CREDENTIALS_ID = 'ec2-ssh-key'                
+        EC2_HOST = 'ubuntu@52.90.29.238'                    
     }
 
     stages {
@@ -17,7 +20,7 @@ pipeline {
             steps {
                 echo 'Building Docker image...'
                 script {
-                    docker.build("${DOCKER_IMAGE}")
+                    docker.build("${DOCKER_IMAGE}:latest")
                 }
             }
         }
@@ -26,8 +29,8 @@ pipeline {
             steps {
                 echo 'Pushing image to DockerHub...'
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials') {
-                        sh "docker push ${DOCKER_IMAGE}"
+                    docker.withRegistry('https://index.docker.io/v1/', "${DOCKERHUB_CREDENTIALS_ID}") {
+                        docker.image("${DOCKER_IMAGE}:latest").push()
                     }
                 }
             }
@@ -36,27 +39,26 @@ pipeline {
         stage('Deploy to AWS EC2') {
             steps {
                 echo 'Deploying to EC2...'
-                sshagent(['ec2-ssh-key']) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ec2-user@52.90.29.238 '
-                            docker pull ${DOCKER_IMAGE} &&
-                            docker stop focus-task || true &&
-                            docker rm focus-task || true &&
-                            docker run -d -p 80:80 --name focus-task ${DOCKER_IMAGE}
+                sshagent (credentials: [EC2_SSH_CREDENTIALS_ID]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${EC2_HOST} '
+                          docker pull ${DOCKER_IMAGE}:latest &&
+                          docker stop focus-task || true &&
+                          docker rm focus-task || true &&
+                          docker run -d -p 80:80 --name focus-task ${DOCKER_IMAGE}:latest
                         '
-                    '''
+                    """
                 }
             }
         }
     }
 
     post {
+        success {
+            echo '✅ Deployment successful!'
+        }
         failure {
             echo '❌ Deployment failed!'
         }
-        success {
-            echo '✅ Deployment succeeded!'
-        }
     }
 }
-
